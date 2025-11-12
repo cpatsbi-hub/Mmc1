@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mission Malappuram Connect</title>
+<style>
+body {
+  margin: 0;
+  font-family: system-ui, Segoe UI, Roboto, Arial;
+  background: #f8fbfb;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.container {
+  max-width: 480px;
+  width: 100%;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  margin: 20px;
+  padding: 20px;
+}
+h1 {
+  text-align: center;
+  color: #00796b;
+  font-size: 22px;
+  margin-bottom: 15px;
+  font-weight: 800;
+}
+label {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  margin-top: 10px;
+  color: #444;
+}
+input, select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-top: 4px;
+  box-sizing: border-box;
+}
+button {
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+#capture {background: #e0f2f1; color: #00796b;}
+#share {background: #00796b; color: white;}
+#copy {background: white; color: #00796b; border: 1px solid #00796b;}
+.row {display: flex; gap: 8px;}
+.status {
+  margin-top: 10px;
+  text-align: center;
+  font-weight: 600;
+  color: #00796b;
+}
+.error {color: #d32f2f;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Mission Malappuram Connect</h1>
+  <form onsubmit="return false;">
+    <label>Name</label>
+    <input id="name" type="text" required>
+    <label>Mobile Number</label>
+    <input id="mobile" type="tel" maxlength="10" placeholder="10 digits" required>
+    <label>GST No.</label>
+    <input id="gst" type="text">
+    <label>Type of Activity</label>
+    <input id="activity" type="text">
+    <label>Size</label>
+    <select id="size">
+      <option value="Small">Small</option>
+      <option value="Medium">Medium</option>
+      <option value="Large">Large</option>
+    </select>
+    <label>Location</label>
+    <div class="row">
+      <input id="loc" type="text" placeholder="Not captured" readonly style="flex:1;">
+      <button id="capture" type="button">Capture</button>
+    </div>
+    <div class="row" style="margin-top: 10px;">
+      <button id="share" type="button">Share to WhatsApp</button>
+      <button id="copy" type="button">Copy</button>
+    </div>
+    <div id="msg" class="status">Awaiting location</div>
+  </form>
+</div>
+
+<script>
+let coords = null;
+const msg = document.getElementById("msg");
+
+function show(text, isError=false){
+  msg.textContent = text;
+  msg.className = isError ? "status error" : "status";
+}
+
+document.getElementById("capture").onclick = async () => {
+  if (!navigator.geolocation) {
+    show("Geolocation not supported", true);
+    return;
+  }
+  show("Capturing location...");
+  navigator.geolocation.getCurrentPosition(
+    p => {
+      coords = {lat:p.coords.latitude, lng:p.coords.longitude};
+      document.getElementById("loc").value = `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
+      show("Location captured successfully");
+    },
+    err => {
+      console.error(err);
+      if (err.code === 1)
+        show("Permission denied. Allow location in browser settings.", true);
+      else if (err.code === 2)
+        show("Location unavailable. Try again outdoors.", true);
+      else if (err.code === 3)
+        show("Timeout. Retry capturing.", true);
+      else
+        show("Location capture failed. Enable GPS & HTTPS.", true);
+    },
+    {enableHighAccuracy: true, timeout: 20000}
+  );
+};
+
+function makeMessage(){
+  const name = document.getElementById("name").value.trim();
+  const mobile = document.getElementById("mobile").value.trim();
+  const gst = document.getElementById("gst").value.trim() || "-";
+  const activity = document.getElementById("activity").value.trim() || "-";
+  const size = document.getElementById("size").value;
+  if (!name){ show("Enter name", true); return null; }
+  if (mobile.length !== 10){ show("Enter valid 10-digit mobile", true); return null; }
+  if (!coords){ show("Capture location first", true); return null; }
+  const maps = `https://maps.google.com/?q=${coords.lat},${coords.lng}`;
+  const msg = `*Mission Malappuram Connect*\n\n*Name:* ${name}\n*Mobile:* ${mobile}\n*GST:* ${gst}\n*Activity:* ${activity}\n*Size:* ${size}\n*Location:* ${maps}\n\n*Captured on:* ${new Date().toLocaleString()}`;
+  return msg;
+}
+
+document.getElementById("share").onclick = () => {
+  const text = makeMessage();
+  if (!text) return;
+  const encoded = encodeURIComponent(text);
+  // Try web share API first
+  if (navigator.share) {
+    navigator.share({text: text, title: "Mission Malappuram Connect"}).catch(()=>{});
+  } else {
+    const link = `https://wa.me/?text=${encoded}`;
+    window.open(link, "_blank");
+  }
+};
+
+document.getElementById("copy").onclick = () => {
+  const text = makeMessage();
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(()=>show("Copied to clipboard")).catch(()=>show("Copy failed", true));
+};
+</script>
+</body>
+</html>
